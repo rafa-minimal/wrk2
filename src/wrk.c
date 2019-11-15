@@ -204,19 +204,24 @@ int main(int argc, char **argv) {
     latency_stats->max = hdr_max(latency_histogram);
     latency_stats->histogram = latency_histogram;
 
+    stats *u_latency_stats = stats_alloc(10);
+    u_latency_stats->min = hdr_min(u_latency_histogram);
+    u_latency_stats->max = hdr_max(u_latency_histogram);
+    u_latency_stats->histogram = u_latency_histogram;
+
     print_stats_header();
-    print_stats("Latency", latency_stats, format_time_us);
-    print_stats("Req/Sec", statistics.requests, format_metric);
-//    if (cfg.latency) print_stats_latency(latency_stats);
 
     if (cfg.latency) {
+        print_stats("Latency", latency_stats, format_time_us);
+        print_stats("Req/Sec", statistics.requests, format_metric);
         print_hdr_latency(latency_histogram,
                 "Recorded Latency");
         printf("----------------------------------------------------------\n");
     }
 
     if (cfg.u_latency) {
-        printf("\n");
+        print_stats("Latency", u_latency_stats, format_time_us);
+        print_stats("Req/Sec", statistics.requests, format_metric);
         print_hdr_latency(u_latency_histogram,
                 "Uncorrected Latency (measured without taking delayed starts into account)");
         printf("----------------------------------------------------------\n");
@@ -241,7 +246,11 @@ int main(int argc, char **argv) {
     if (script_has_done(L)) {
         script_summary(L, runtime_us, complete, bytes);
         script_errors(L, &errors);
-        script_done(L, latency_stats, statistics.requests);
+        if (cfg.u_latency) {
+            script_done(L, u_latency_stats, statistics.requests);
+        } else {
+            script_done(L, latency_stats, statistics.requests);
+        }
     }
 
     return 0;
@@ -742,7 +751,6 @@ static int parse_args(struct config *cfg, char **url, struct http_parser_url *pa
                 cfg->record_all_responses = false;
                 break;
             case 'U':
-                cfg->latency = true;
                 cfg->u_latency = true;
                 break;
             case 'T':
